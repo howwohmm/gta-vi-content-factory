@@ -24,8 +24,8 @@ DEFAULTS = {
     "setup_done": False,
     "setup_step": 0,
     "launch_mode": "",          # "web" or "terminal"; asked at the end of setup
-    "page_name": "",                 # e.g. "Page for GTA VI"
-    "handle": "",                    # e.g. "pageforgtavi" (Instagram/Threads handle, no @)
+    "page_name": "",                 # e.g. "My GTA VI Page"
+    "handle": "",                    # e.g. "mygta6page" (Instagram/Threads handle, no @)
     "game": "GTA VI",                # header on every reel: "In GTA VI"
     "header": "In GTA VI",
     # AI

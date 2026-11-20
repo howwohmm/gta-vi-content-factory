@@ -123,8 +123,8 @@ function obNav(skip = true, label = "Continue") {
 }
 function obBody(i) {
   const s = S.settings, t = S.tools;
-  if (i === 0) return `<div class="grid g2"><div><label>Page name</label><input id="w_page" value="${esc(s.page_name)}" placeholder="Page for GTA VI"></div>
-      <div><label>Instagram / Threads handle</label><input id="w_handle" value="${esc(s.handle)}" placeholder="pageforgtavi"></div></div>
+  if (i === 0) return `<div class="grid g2"><div><label>Page name</label><input id="w_page" value="${esc(s.page_name)}" placeholder="My GTA VI Page"></div>
+      <div><label>Instagram / Threads handle</label><input id="w_handle" value="${esc(s.handle)}" placeholder="mygta6page"></div></div>
     <label>Text on top of every reel</label><input id="w_header" value="${esc(s.header)}" oninput="$('#w_prev').textContent=this.value||'In GTA VI'">
     <p class="help">Reels read like: <b id="w_prev" style="color:var(--text)">${esc(s.header)}</b>, if you wreck Brian's seaplane he's waiting at the dock to ask what happened 😭</p>
     <div class="card" style="margin-top:14px;border-color:rgba(255,181,71,.25)"><b>Only use footage you're allowed to use.</b><p class="muted small" style="margin:4px 0 0">Your own gameplay is safest. Clipping other creators needs their permission (many run clipping programs) and a credit.</p></div>
