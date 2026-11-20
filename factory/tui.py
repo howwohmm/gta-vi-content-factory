@@ -1,13 +1,15 @@
 """Terminal dashboard. Same engine as the web app, drawn with curses.
 
 Keys:  s start/stop posting   a approve everything waiting for review   o open the web app
-       f open the factory folder   w switch to the web app next time   q quit
+       f open the factory folder   w switch to the web app next time   g star on GitHub   x follow on X   q quit
 """
 import curses, subprocess, sys, time, webbrowser
 
 from . import core, posting, pipeline, server
 
 PLAT = [("instagram", "IG", "Instagram"), ("facebook", "FB", "Facebook"), ("threads", "TH", "Threads")]
+REPO = "https://github.com/priyanshuratnakar/gta-vi-content-factory"
+X = "https://x.com/0xratnakar"
 SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -96,16 +98,17 @@ class UI:
 
         y += 1
         self.put(y, 2, "LIVE", self.DIM | curses.A_BOLD); y += 1
-        room = h - y - 3
+        room = h - y - 4
         for l in list(core.FEED)[-max(0, room):]:
             col = self.RED if l["level"] in ("error", "bad") else self.GREEN if l["level"] in ("good", "ok") else 0
             self.put(y, 2, l["t"][11:19], self.DIM)
             self.put(y, 11, f"{l['tag'][:9]:<9}", self.PINK)
             self.put(y, 21, l["msg"], col); y += 1
 
-        keys = " s start/stop   a approve all   o open web app   f folder   w use web next time   q quit "
+        self.put(h - 3, 2, "★ free & open source · star it: github.com/priyanshuratnakar/gta-vi-content-factory · follow x.com/0xratnakar", self.DIM)
+        keys = " s start/stop  a approve all  o web app  f folder  w web next time  g star on GitHub  x follow on X  q quit "
         self.put(h - 2, 0, keys.ljust(w - 1), curses.A_REVERSE)
-        if self.msg and time.time() - self.msg_t < 5: self.put(h - 3, 2, self.msg, self.YELLOW)
+        if self.msg and time.time() - self.msg_t < 5: self.put(h - 3, 2, self.msg.ljust(w - 4), self.YELLOW)
         self.scr.refresh()
         return S
 
@@ -124,6 +127,8 @@ class UI:
         if k == ord("o"): webbrowser.open(self.url); self.note(f"Opened {self.url}")
         if k == ord("f"):
             subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", core.HOME_DIR]); self.note("Opened the factory folder.")
+        if k == ord("g"): webbrowser.open(REPO); self.note("Opened GitHub. A star helps a lot, thank you!")
+        if k == ord("x"): webbrowser.open(X); self.note("Opened @0xratnakar on X.")
         if k == ord("w"):
             core.save_settings({"launch_mode": "web"}); self.note("Next start opens the web app. (./start.sh --terminal brings this back)")
         return True
@@ -141,3 +146,4 @@ def run(url):
     except KeyboardInterrupt:
         pass
     print("Content Factory stopped. Start again with ./start.sh")
+    print(f"★ Like it? Star {REPO}  ·  follow {X}")

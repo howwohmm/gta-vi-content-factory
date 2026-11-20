@@ -46,12 +46,17 @@ const ICONS = {
   key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7M17 6l2 2M15 8l2 2"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   refresh: '<path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4"/>',
+  star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+  xlogo: '<path d="M4 4l16 16M20 4 4 20" />',
+  gh: '<path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-.9-2.3c3-.3 6-1.5 6-6.5a5 5 0 0 0-1.4-3.5 4.7 4.7 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.4 12.4 0 0 0-6.5 0C6 1.4 4.9 1.7 4.9 1.7a4.7 4.7 0 0 0-.1 3.5A5 5 0 0 0 3.4 8.7c0 5 3 6.2 6 6.5a3 3 0 0 0-.9 2.3V21"/>',
   ig: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6" fill="currentColor"/>',
   fb: '<path d="M14.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.6-1.5h1.6V4.4A21 21 0 0 0 15.4 4c-2.3 0-3.9 1.4-3.9 4v2.5H9v3h2.5V21"/>',
   th: '<circle cx="12" cy="12" r="3.5"/><path d="M15.5 8.5v4.8a2.6 2.6 0 0 0 5.2 0V12a8.7 8.7 0 1 0-3.4 6.9"/>',
   meta: '<path d="M3 15c0-4 2-8 4.5-8C10 7 12 12 12 12s2 5 4.5 5S21 13 21 11s-1-4-3-4c-2.5 0-4.5 4-6 7-1.5 3-3 5-5 5s-4-1.5-4-4z"/>',
 };
 const ic = (n, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24">${ICONS[n] || ""}</svg>`;
+const LINKS = { repo: "https://github.com/priyanshuratnakar/gta-vi-content-factory", gh: "https://github.com/priyanshuratnakar", x: "https://x.com/0xratnakar" };
+const socials = (cls = "") => `<div class="socials ${cls}"><a class="btn sm" href="${LINKS.repo}" target="_blank">${ic("star")} Star on GitHub</a><a class="btn sm" href="${LINKS.x}" target="_blank">${ic("xlogo")} Follow @0xratnakar</a></div>`;
 const PLAT = [["instagram", "IG", "Instagram", "ig"], ["facebook", "FB", "Facebook", "fb"], ["threads", "TH", "Threads", "th"]];
 
 // ------------------------------------------------------------ shell
@@ -69,7 +74,9 @@ function shell(title, actions, content) {
       `<button class="nav ${view === id ? "on" : ""}" onclick="go('${id}')">${ic(icon)}${label}${id === "review" && n ? `<span class="count">${n}</span>` : ""}</button>`).join("")}`).join("")}
     <div class="foot"><div class="group">Channels</div>
       ${PLAT.map(([p, tag, label, icon]) => { const k = chanKind(p, tag); return `<div class="chan">${ic(icon)}${label}<span class="dot ${k}" title="${esc(chanText(p, tag))}"></span></div>`; }).join("")}
-      <div class="tip"><b>${ic("term")} Prefer the terminal?</b>Run <code>./start.sh --terminal</code> for the same factory as a live terminal dashboard.</div>
+      <div class="tip"><b>${ic("term")} Prefer the terminal?</b>Start with <code>./start.sh --terminal</code></div>
+      <div class="made"><span>Free & open source · by <a href="${LINKS.x}" target="_blank">@0xratnakar</a></span>
+        <div class="row" style="gap:6px;margin-top:8px"><a class="btn sm" href="${LINKS.repo}" target="_blank">${ic("star")} Star</a><a class="btn sm" href="${LINKS.x}" target="_blank">Follow on X</a></div></div>
     </div></aside>
     <main><div class="top"><h1>${title}</h1><span class="spacer"></span>${actions || ""}</div><div class="page">${content}</div></main></div>`;
 }
@@ -99,15 +106,16 @@ function onboarding() {
   if (obStep === null) obStep = Math.min(S.settings.setup_step || 0, OB.length - 1);
   const done = OB.filter((_, i) => obDone(i)).length;
   return `<div class="ob"><div class="bar-top"><div class="mark" style="width:28px;height:28px"><b style="font-size:14px">VI</b></div><b>Set up your factory</b><span class="done">${done} of ${OB.length} done</span><span class="spacer"></span>
-    <button class="btn ghost sm" onclick="finishSetup()">Finish later</button></div>
-    <div class="wrap"><div class="intro"><div class="hello">Welcome to Vice City's<br>content factory</div>
-      <p class="sub">Drop in long gameplay, get reels and long parts with hooks, posted on schedule. Takes about ten minutes. Everything stays on this Mac.</p></div>
+    ${socials()}<button class="btn ghost sm" onclick="finishSetup()">Finish later</button></div>
+    <div class="wrap"><div class="intro"><div class="kicker">${ic("spark")} for GTA VI</div><div class="hello">Welcome to the<br>Content Factory</div>
+      <p class="sub">Put content out, grow the page, print $$$. Drop in long gameplay and the factory clips it, writes the hooks and posts reels on schedule while you play. About ten minutes to set up, and everything stays on this Mac.</p></div>
     ${OB.map(([t, d], i) => { const isOpen = i === obStep, ok = obDone(i);
       return `<div class="step ${isOpen ? "open" : ""} ${ok && !isOpen ? "done" : ""}">
         <div class="sh" onclick="obStep=${i};render()"><span class="num">${ok && !isOpen ? ic("check") : i + 1}</span><h3>${t}</h3><span class="d">${isOpen ? "" : d}</span></div>
         ${isOpen ? `<div class="sb">${obBody(i)}</div>` : ""}</div>`; }).join("")}
     ${obStep === OB.length - 1 ? "" : `<div class="finish"><button class="btn hot lg" onclick="finishSetup()">${done === OB.length ? "Open my dashboard" : "Go to dashboard"} ${ic("arrow")}</button>
-      <p class="help">You can change anything later in Settings and Accounts.</p></div>`}</div></div>`;
+      <p class="help">You can change anything later in Settings and Accounts.</p></div>`}
+    <div class="finish small muted">Free and open source. If it helps, star the repo and follow <a href="${LINKS.x}" target="_blank">@0xratnakar</a> for updates.<div class="row" style="justify-content:center;margin-top:10px">${socials()}</div></div></div></div>`;
 }
 function obNav(skip = true, label = "Continue") {
   return `<div class="nav-row">${skip ? `<button class="btn ghost" onclick="obNext(true)">Skip for now</button>` : ""}<button class="btn primary" onclick="obNext()">${label}</button></div>`;
@@ -152,7 +160,7 @@ Threads    <span class="g">●</span> waiting    <span class="w">  67</span> pos
 <span class="p">⠹</span> stream_0412  <span class="p">██████████░░░░</span>  71%</div>
       <h3>In the terminal</h3><p>A live dashboard in Terminal. Lighter, keyboard driven. Reviewing still opens the browser.</p></div></div>
   ${m === "terminal" ? `<div class="card" style="margin-top:12px"><b>Next time, start it with</b><p class="muted small" style="margin:6px 0 0"><code>./start.sh</code> or double-click <code>start.command</code>. It opens in Terminal. Keys: <span class="kbd">s</span> start/stop posting, <span class="kbd">a</span> approve all, <span class="kbd">o</span> open this web app, <span class="kbd">q</span> quit. Switch back any time with <code>./start.sh --web</code>.</p></div>` : ""}
-  ${inOb ? `<div class="nav-row"><button class="btn hot" onclick="finishSetup()" ${m ? "" : "disabled"}>Finish setup ${ic("arrow")}</button></div>` : ""}`;
+  ${inOb ? `<div class="nav-row">${socials()}<span class="spacer"></span><button class="btn hot" onclick="finishSetup()" ${m ? "" : "disabled"}>Finish setup ${ic("arrow")}</button></div>` : ""}`;
 }
 async function setMode(m, inOb) { await api("/api/settings", { launch_mode: m }); await refresh(); render(); if (!inOb) toast(m === "terminal" ? "Next start opens in Terminal" : "Next start opens in your browser"); }
 
@@ -416,5 +424,5 @@ async function tick() {
   } catch (e) { toast("Lost connection to the factory. Is it still running?"); }
 }
 setInterval(() => PLAT.forEach(([p, tag]) => { const el = $("#cd_" + tag), st = S?.posting.status[tag]; if (el && st?.until) el.innerHTML = `Next post in <b>${countdown(st.until)}</b>`; }), 1000);
-refresh().then(render);
+refresh().then(render).then(() => window.scrollTo(0, 0));
 setInterval(tick, 3000);

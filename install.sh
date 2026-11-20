@@ -57,4 +57,6 @@ fi
 
 say "Done! Starting the Content Factory"
 echo "  Next time, just double-click 'start.command' in this folder."
+echo "  ★ Free & open source. Star it: https://github.com/priyanshuratnakar/gta-vi-content-factory"
+echo "    Follow for updates: https://x.com/0xratnakar"
 ./start.sh

@@ -4,6 +4,8 @@
 
 Runs 100% on your Mac. Free and open source.
 
+Made by [@0xratnakar](https://x.com/0xratnakar). If it helps your page, ⭐ star this repo and [follow on X](https://x.com/0xratnakar) for updates.
+
 ```
  long video ──▶ best moments ──▶ reels + long parts ──▶ you approve ──▶ posted on schedule
  (link/file)    (AI or free)      (hooks, captions,       (one click)      IG · FB · Threads
@@ -121,3 +123,7 @@ Issues and PRs welcome. Keep the UX simple enough for someone who has never open
 ## License
 
 [AGPL-3.0](LICENSE). Free to use, change and share. If you run a modified version as a service for others, you must share your changes under the same license.
+
+---
+
+⭐ Star the repo · follow [@0xratnakar on X](https://x.com/0xratnakar) · [more on GitHub](https://github.com/priyanshuratnakar)
