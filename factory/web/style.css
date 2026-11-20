@@ -277,3 +277,10 @@ details summary:hover{color:var(--text)}
 .made a:not(.btn){color:var(--dim)}
 .ob .intro .kicker{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:#0a0a0f;background:var(--sunset);border-radius:99px;padding:4px 12px;margin-bottom:14px}
 .ob .intro .kicker svg{width:13px;height:13px}
+.btn.ai{border-color:rgba(255,62,154,.35);background:linear-gradient(180deg,rgba(255,62,154,.10),rgba(255,62,154,.04))}
+.btn.ai:hover{border-color:rgba(255,62,154,.6)}
+.btn.ai svg{color:var(--pink)}
+.ai-note{display:flex;gap:12px;align-items:center;margin:4px 0 14px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,62,154,.22);background:linear-gradient(90deg,rgba(255,62,154,.07),rgba(138,92,255,.05));font-size:13px;color:var(--dim)}
+.ai-note > svg{color:var(--pink);width:18px;height:18px}
+.ai-note b{color:var(--text)}
+.ai-note div{flex:1}

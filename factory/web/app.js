@@ -108,7 +108,8 @@ function onboarding() {
   return `<div class="ob"><div class="bar-top"><div class="mark" style="width:28px;height:28px"><b style="font-size:14px">VI</b></div><b>Set up your factory</b><span class="done">${done} of ${OB.length} done</span><span class="spacer"></span>
     ${socials()}<button class="btn ghost sm" onclick="finishSetup()">Finish later</button></div>
     <div class="wrap"><div class="intro"><div class="kicker">${ic("spark")} for GTA VI</div><div class="hello">Welcome to the<br>Content Factory</div>
-      <p class="sub">Put content out, grow the page, print $$$. Drop in long gameplay and the factory clips it, writes the hooks and posts reels on schedule while you play. About ten minutes to set up, and everything stays on this Mac.</p></div>
+      <p class="sub">Put content out, grow the page, print $$$. Drop in long gameplay and the factory clips it, writes the hooks and posts reels on schedule while you play. About ten minutes to set up, and everything stays on this Mac.</p>
+      <div class="row" style="justify-content:center;margin-top:16px">${aiBtn("all", "Copy a prompt so AI sets it up for you")}</div></div>
     ${OB.map(([t, d], i) => { const isOpen = i === obStep, ok = obDone(i);
       return `<div class="step ${isOpen ? "open" : ""} ${ok && !isOpen ? "done" : ""}">
         <div class="sh" onclick="obStep=${i};render()"><span class="num">${ok && !isOpen ? ic("check") : i + 1}</span><h3>${t}</h3><span class="d">${isOpen ? "" : d}</span></div>
@@ -189,6 +190,58 @@ async function saveAI(p) {
   await refresh();
 }
 
+// ------------------------------------------------------------ "let AI do it" prompts
+const RULES = `Rules: never type my passwords or 2FA codes (I'll do those), don't accept terms, pay for anything or change account settings without asking me first, and pause whenever Meta or Google asks me to verify something. When a key or secret appears, don't paste it anywhere yourself: tell me where it is and I'll copy it into the Content Factory.`;
+const INTRO = () => `I'm setting up GTA VI Content Factory (${LINKS.repo}), a free open-source tool running on my Mac at http://localhost:8765. It clips my gameplay into reels and posts them through the official Instagram, Facebook and Threads APIs. My page is "${S.settings.page_name || "my page"}"${S.settings.handle ? ` (@${S.settings.handle})` : ""}. Please use my browser to help me with this step by step, and tell me what you're doing as you go.`;
+const PROMPTS = {
+  meta: () => `${INTRO()}
+
+Goal: create my Meta developer app (one time).
+1. Check my Instagram is a Professional account and is linked to my Facebook Page. If not, show me where to switch it.
+2. Go to https://developers.facebook.com/apps and create an app named "${S.settings.page_name || "Content Factory"} poster".
+3. Add the use cases "Manage everything on your Page", "Instagram API" and "Access the Threads API".
+4. Open App settings → Basic and point me to the App ID and App secret so I can paste them into http://localhost:8765/#accounts → Meta app.
+
+${RULES}`,
+  fb: () => `${INTRO()}
+
+Goal: get the Meta key that lets the factory post to my Instagram and Facebook Page.
+1. Open https://developers.facebook.com/tools/explorer/ and select my app (top right).
+2. Add these permissions: pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic, instagram_content_publish, business_management.
+3. Click Generate Access Token and help me tick my Page and my Instagram account in the popup (I'll approve it).
+4. Tell me when the token (starts with EAA) is ready so I can copy it into http://localhost:8765/#accounts → Instagram + Facebook Page.
+
+${RULES}`,
+  th: () => `${INTRO()}
+
+Goal: get my Threads key.
+1. In https://developers.facebook.com/apps open my app → Use cases → Access the Threads API → Customize, and add threads_basic and threads_content_publish.
+2. Under App roles → Roles → Threads testers, add my Threads username${S.settings.handle ? ` (${S.settings.handle})` : ""}. Then open https://www.threads.net/settings/account → Website permissions → Invites so I can accept it.
+3. Back in the Threads use case settings, use the User Token Generator to generate an access token.
+4. Tell me when it's ready so I can copy it into http://localhost:8765/#accounts → Threads.
+
+${RULES}`,
+  yt: () => `${INTRO()}
+
+Goal: schedule my YouTube uploads. I've dragged the videos from one "YouTube uploads/Day NN" folder into YouTube Studio and they're sitting as drafts. The folder also has "_titles and descriptions.txt" and thumbnails; I'll attach or paste them here.
+For each draft in https://studio.youtube.com: set the title and description from that file, set "No, it's not made for kids", upload the matching thumbnail for long videos, then Schedule it. Space Shorts 30 minutes apart, alternating "In GTA VI" reels and gameplay parts, and put long videos 12 hours apart at good viewing times. Show me the schedule before you start.
+
+${RULES}`,
+  all: () => `${INTRO()}
+
+Goal: finish the whole setup with me. Open http://localhost:8765 and work through the checklist: name the page, pick the AI, create my Meta app, connect Instagram + Facebook and Threads, pick a thumbnail style and add my first video. For the account steps, follow the instructions shown in each row of the Accounts page (open the row to see the exact clicks).
+
+${RULES}`,
+};
+async function copyPrompt(k) {
+  const t = PROMPTS[k]();
+  try { await navigator.clipboard.writeText(t); }
+  catch { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); }
+  toast("Prompt copied. Paste it into Claude (with Claude in Chrome) or any AI that can use your browser.", 6000);
+}
+const aiBtn = (k, label = "Let AI do it") => `<button class="btn sm ai" onclick="copyPrompt('${k}')" title="Copies a prompt for Claude in Chrome or another browser AI">${ic("spark")} ${label}</button>`;
+const aiNote = (k) => `<div class="ai-note">${ic("spark")}<div><b>Rather not click through this?</b> Copy a ready-made prompt and paste it into Claude with <a href="https://claude.ai/chrome" target="_blank">Claude in Chrome</a> (or any AI that can use your browser). It does the clicking and stops for anything you should approve.</div>${aiBtn(k, "Copy prompt")}</div>`;
+
 // ------------------------------------------------------------ accounts (integration list)
 function accountsList() {
   const a = S.accounts;
@@ -197,23 +250,23 @@ function accountsList() {
       ${connected ? `<span class="pill ok">${statusText || "Connected"}</span>` : ""}
       <button class="btn sm" onclick="openIntg=openIntg==='${id}'?null:'${id}';render()">${openIntg === id ? "Close" : connected ? "Manage" : `Connect ${ic("arrow")}`}</button></div>
     ${openIntg === id ? `<div class="panel">${panel}</div>` : ""}</div>`;
-  const meta = `<p class="muted small" style="margin:0">Meta only lets tools post through an app you own. It's free, and saving it lets the factory turn short keys into 60-day keys and refresh Threads by itself.</p>
+  const meta = `${aiNote("meta")}<p class="muted small" style="margin:0">Meta only lets tools post through an app you own. It's free, and saving it lets the factory turn short keys into 60-day keys and refresh Threads by itself.</p>
     <ol class="steps"><li>Make your Instagram a <b>Professional</b> account and link it to your Facebook Page.</li>
       <li>Open <a href="https://developers.facebook.com/apps" target="_blank">developers.facebook.com/apps</a> → <b>Create app</b>. Name it anything.</li>
       <li>Add the use cases <b>Manage everything on your Page</b>, <b>Instagram API</b> and <b>Access the Threads API</b>.</li>
       <li><b>App settings → Basic</b>: copy the App ID and App secret below.</li></ol>
     <div class="grid g2"><div><label>App ID</label><input id="m_id" placeholder="1234567890"></div><div><label>App secret</label><input id="m_secret" type="password" placeholder="${a.meta_app ? "Saved" : ""}"></div></div>
     <div class="row" style="margin-top:12px"><button class="btn primary" onclick="saveMetaApp()">Save app</button><span class="help" style="margin:0">Have Claude in Chrome? Ask it to “set up my Meta app with the meta-setup skill”.</span></div>`;
-  const fb = `<ol class="steps"><li>Open the <a href="https://developers.facebook.com/tools/explorer/" target="_blank">Graph API Explorer</a> and pick your app.</li>
+  const fb = `${aiNote("fb")}<ol class="steps"><li>Open the <a href="https://developers.facebook.com/tools/explorer/" target="_blank">Graph API Explorer</a> and pick your app.</li>
       <li>Add <code>pages_show_list</code> <code>pages_read_engagement</code> <code>pages_manage_posts</code> <code>instagram_basic</code> <code>instagram_content_publish</code> <code>business_management</code>.</li>
       <li><b>Generate Access Token</b>, tick your Page and Instagram, approve, and copy the key (starts with <code>EAA</code>).</li></ol>
     <div class="grid g2"><div><label>Meta key</label><input id="k_fb" type="password" placeholder="EAA…"></div><div><label>Page ID <span class="faint">· only if you manage several</span></label><input id="k_page" placeholder="optional"></div></div>
     <div class="row" style="margin-top:12px"><button class="btn primary" onclick="connect('facebook')">Connect Instagram + Facebook</button></div><div id="msg_facebook" class="result"></div>`;
-  const th = `<ol class="steps"><li>In your app: <b>Use cases → Access the Threads API → Customize</b>. Add <code>threads_basic</code> and <code>threads_content_publish</code>.</li>
+  const th = `${aiNote("th")}<ol class="steps"><li>In your app: <b>Use cases → Access the Threads API → Customize</b>. Add <code>threads_basic</code> and <code>threads_content_publish</code>.</li>
       <li><b>Roles → Threads testers</b>: add your username, then accept in Threads (Settings → Account → Website permissions → Invites).</li>
       <li><b>User Token Generator</b> → Generate Access Token → copy it.</li></ol>
     <label>Threads key</label><div class="inline"><input id="k_th" type="password" placeholder="THAA…"><button class="btn primary" onclick="connect('threads')">Connect</button></div><div id="msg_threads" class="result"></div>`;
-  const yt = `<p class="muted small" style="margin:0">Google keeps uploads from unaudited apps private, so the factory builds ready-to-drag Day folders with titles, descriptions and thumbnails. Drag them into YouTube Studio, then let Claude schedule them with the <code>youtube-studio-scheduler</code> skill.</p>
+  const yt = `${aiNote("yt")}<p class="muted small" style="margin:0">Google keeps uploads from unaudited apps private, so the factory builds ready-to-drag Day folders with titles, descriptions and thumbnails. Drag them into YouTube Studio, then let Claude schedule them with the <code>youtube-studio-scheduler</code> skill.</p>
     <div class="row" style="margin-top:12px"><button class="btn" onclick="go('youtube')">Open YouTube page</button></div>`;
   return `<div class="list intg">
     ${item("meta", "meta", "Meta app", "One-time, about 5 minutes. Keeps your keys alive for 60 days.", a.meta_app, meta, "Saved")}
@@ -364,7 +417,7 @@ function youtube() {
   const content = `<p class="sub">Google keeps script uploads private until an app passes its audit, so you drag and the factory does everything else.</p>
   <div class="list intg"><div class="item"><div class="li"><div class="logo-tile">${ic("folder")}</div><div class="meta"><b>1 · Make Day folders</b><span>${S.settings.youtube_per_day} videos per day: Shorts plus up to 2 long parts, named with their titles, with thumbnails and a descriptions file.</span></div><button class="btn primary sm" onclick="ytBuild()">Make folders</button></div></div>
     <div class="item"><div class="li"><div class="logo-tile">${ic("upload")}</div><div class="meta"><b>2 · Drag into YouTube Studio</b><span>Create → Upload videos, drop a Day folder's files in. They land as drafts.</span></div><a class="btn sm" href="https://studio.youtube.com" target="_blank">Open Studio ${ic("arrow")}</a></div></div>
-    <div class="item"><div class="li"><div class="logo-tile">${ic("spark")}</div><div class="meta"><b>3 · Let Claude schedule them</b><span>With the <code>youtube-studio-scheduler</code> skill: “schedule my drafts every 30 minutes, 2 long videos a day”.</span></div></div></div></div>
+    <div class="item"><div class="li"><div class="logo-tile">${ic("spark")}</div><div class="meta"><b>3 · Let Claude schedule them</b><span>With the <code>youtube-studio-scheduler</code> skill: “schedule my drafts every 30 minutes, 2 long videos a day”.</span></div>${aiBtn("yt", "Copy prompt")}</div></div></div>
   <div class="card" style="margin-top:16px"><b>Lift the upload limit</b><p class="muted small" style="margin:4px 0 0">Verify your channel (Studio → Settings → Channel → Feature eligibility → Advanced features) to go past ~15 uploads a day.</p></div>`;
   return shell("YouTube", `<button class="btn ghost sm" onclick="openFolder('youtube')">${ic("folder")} Uploads folder</button>`, content);
 }
@@ -406,7 +459,7 @@ async function render() {
   if (!S) return;
   if (!S.settings.setup_done) { $("#root").innerHTML = onboarding(); return; }
   if (view === "review") await loadProject();
-  const pages = { home, videos, review, accounts: () => shell("Accounts", "", `<p class="sub">Keys stay in a hidden folder on this Mac and never go anywhere else.</p>${accountsList()}`), covers, youtube, settings };
+  const pages = { home, videos, review, accounts: () => shell("Accounts", aiBtn("all", "Copy setup prompt for AI"), `<p class="sub">Keys stay in a hidden folder on this Mac and never go anywhere else.</p>${accountsList()}`), covers, youtube, settings };
   $("#root").innerHTML = (pages[view] || home)();
   const f = $("#feed"); if (f) f.scrollTop = f.scrollHeight;
 }

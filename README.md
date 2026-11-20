@@ -34,6 +34,12 @@ The installer sets up Homebrew (if needed), ffmpeg, yt-dlp, cloudflared and a pr
 
 Apple Silicon recommended (M1 or newer). Intel Macs work, local AI is slower.
 
+## Let AI set it up for you
+
+Don't want to click through Meta's developer pages yourself? Every step in the **Accounts** page (and the setup checklist) has a **Let AI do it** button. It copies a ready-made prompt. Paste it into Claude with [Claude in Chrome](https://claude.ai/chrome), or any AI that can use your browser, and it does the clicking. It stops for anything you should approve, and you paste the keys in yourself.
+
+There's also a **Copy setup prompt for AI** button that walks an AI through the whole checklist.
+
 ## Browser or terminal
 
 Setup always happens in the browser. At the end it asks how you want to run the factory day to day:
