@@ -32,6 +32,22 @@ The installer sets up Homebrew (if needed), ffmpeg, yt-dlp, cloudflared and a pr
 
 Apple Silicon recommended (M1 or newer). Intel Macs work, local AI is slower.
 
+## Browser or terminal
+
+Setup always happens in the browser. At the end it asks how you want to run the factory day to day:
+
+- **Browser** (default): the dashboard at http://localhost:8765.
+- **Terminal**: a live dashboard right in Terminal. Keys: `s` start/stop posting, `a` approve everything waiting, `o` open the web app (for reviewing reels), `f` open the folder, `q` quit. The web app keeps running in the background.
+
+Switch any time:
+
+```bash
+./start.sh --terminal     # terminal dashboard
+./start.sh --web          # browser dashboard
+./start.sh add <link|file>   # hand a video to a running factory
+./start.sh status            # quick summary
+```
+
 ## Your first day
 
 1. **Setup wizard.** Name your page, pick the AI, connect accounts, pick a thumbnail style.

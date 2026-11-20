@@ -28,6 +28,12 @@ def web_file(name: str):
     if not os.path.exists(p): raise HTTPException(404)
     return FileResponse(p)
 
+@app.get("/fonts/{name}")
+def font_file(name: str):
+    p = os.path.join(os.path.dirname(__file__), "assets", "fonts", os.path.basename(name))
+    if not os.path.exists(p): raise HTTPException(404)
+    return FileResponse(p)
+
 @app.get("/media")
 def media(path: str):
     """Previews of your videos/covers. Only files inside the factory folder are served."""
@@ -44,6 +50,26 @@ def tools():
     return t
 
 CONNECT_KEYS = {"instagram": "instagram_token", "facebook": "facebook_token", "threads": "threads_token"}
+
+def up_next(q, n=8):
+    out = []
+    for it in q:
+        if not it["approved"]: continue
+        todo = [p for p in ("instagram", "facebook", "threads")
+                if it["posted"].get(p, {}).get("status") != "posted" and (it["kind"] == "reel" or p == "facebook")]
+        if todo:
+            out.append({"id": it["id"], "title": it["title"], "kind": it["kind"], "file": it["file"],
+                        "cover": it.get("cover", ""), "todo": todo,
+                        "errors": [p for p in todo if it["posted"].get(p, {}).get("status") == "error"]})
+        if len(out) >= n: break
+    return out
+
+def recent(q, n=6):
+    done = []
+    for it in q:
+        for p, v in it["posted"].items():
+            if v.get("status") == "posted": done.append({"title": it["title"], "platform": p, "at": v.get("time", 0), "url": v.get("url", "")})
+    return sorted(done, key=lambda d: d["at"] or 0, reverse=True)[:n]
 
 @app.get("/api/state")
 def state():
@@ -63,7 +89,7 @@ def state():
                "openai": bool(core.get_key("openai_api_key"))},
         "accounts": {p: bool(core.get_key(k)) for p, k in CONNECT_KEYS.items()} | {"meta_app": bool(core.get_key("meta_app_secret"))},
         "posting": {"status": posting.STATUS, "running": posting.running()},
-        "counts": counts, "queue_size": len(q),
+        "counts": counts, "queue_size": len(q), "up_next": up_next(q), "recent": recent(q),
         "projects": [{"id": p["id"], "title": p["title"], "status": p["status"], "duration": p["duration"],
                       "reels": sum(1 for m in p["moments"] if m.get("reel")),
                       "approved": sum(1 for m in p["moments"] if m["status"] == "approved"),

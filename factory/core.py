@@ -22,6 +22,8 @@ SETTINGS_FILE = os.path.join(HOME_DIR, "settings.json")
 
 DEFAULTS = {
     "setup_done": False,
+    "setup_step": 0,
+    "launch_mode": "",          # "web" or "terminal"; asked at the end of setup
     "page_name": "",                 # e.g. "Page for GTA VI"
     "handle": "",                    # e.g. "pageforgtavi" (Instagram/Threads handle, no @)
     "game": "GTA VI",                # header on every reel: "In GTA VI"
@@ -106,6 +108,7 @@ def del_key(name):
 
 # ---------- log + live feed for the web app ----------
 FEED = collections.deque(maxlen=400)
+QUIET = False               # the terminal dashboard owns the screen, so no prints
 
 def now(): return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -117,7 +120,8 @@ def say(tag, msg, level="info"):
             f.write(f"[{line['t']}] [{tag}] {msg}\n")
     except OSError:
         pass
-    print(f"[{line['t']}] [{tag}] {msg}", flush=True)
+    if not QUIET:
+        print(f"[{line['t']}] [{tag}] {msg}", flush=True)
 
 # ---------- json files ----------
 def read_json(path, default):
