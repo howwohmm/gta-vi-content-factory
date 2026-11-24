@@ -102,10 +102,18 @@ def import_external_folder(folder_path, tier="S", priority_base=1000):
             staged = os.path.join(core.DIRS["queue"], f"stier_{rank_n:02d}_{core.safe_name(clean_title, 65)}.mp4")
             if not os.path.exists(staged) or os.path.getsize(staged) != os.path.getsize(src):
                 core.fast_copy(src, staged)
+            cover_jpg = staged[:-4] + " cover.jpg"
+            src_sidecar = os.path.splitext(src)[0] + " - thumbnail.jpg"
+            if os.path.isfile(src_sidecar):
+                core.fast_copy(src_sidecar, cover_jpg)
+            elif not os.path.isfile(cover_jpg):
+                try: covers.make_reel_cover(staged, clean_title, cover_jpg, s)
+                except Exception: cover_jpg = ""
             caps = captions(s, clean_title, keywords=["gta 6 highlights", "vice city"], variant=rank_n)
             existing = by_sha.get(sha)
             if existing:
-                existing.update(file=staged, priority=prio, tier=tier, source_tag=tag_label, approved=True)
+                existing.update(file=staged, cover=cover_jpg if os.path.isfile(cover_jpg) else "",
+                                priority=prio, tier=tier, source_tag=tag_label, approved=True)
                 if not any(v.get("status") == "posted" for v in existing.get("posted", {}).values()):
                     existing.update(title=f"In {s['game']}, {clean_title}" if not clean_title.lower().startswith("in gta") else clean_title,
                                     hook=clean_title, captions=caps)
@@ -125,7 +133,7 @@ def import_external_folder(folder_path, tier="S", priority_base=1000):
                     "hook": clean_title,
                     "title": title_line,
                     "captions": caps,
-                    "cover": "",
+                    "cover": cover_jpg if os.path.isfile(cover_jpg) else "",
                     "approved": True,
                     "created": time.time(),
                     "posted": {},
@@ -289,6 +297,14 @@ def render_moment(p, m, s, reels_dir=None, force=False):
     if force or not os.path.exists(out) or os.path.getsize(out) < 10000:
         render.reel(p["video"], m["start"], s["reel_seconds"], m["hook"], out, s)
     m["reel"] = out
+    cov_out = out[:-4] + " cover.jpg"
+    if force or not os.path.exists(cov_out) or os.path.getsize(cov_out) < 2000:
+        try:
+            covers.make_reel_cover(out, m["hook"], cov_out, s, source_video=p.get("video"),
+                                   start_sec=m["start"], length_sec=s["reel_seconds"])
+        except Exception:
+            cov_out = ""
+    m["cover"] = cov_out if cov_out and os.path.exists(cov_out) else ""
     if m["status"] == "needs_hook": m["status"] = "review"
 
 def sync_queue(p):
@@ -311,17 +327,18 @@ def sync_queue(p):
             if not m.get("reel"): continue
             it = by_key.get((p["id"], m["id"]))
             caps = captions(s, m["hook"], m.get("emoji", ""), m.get("keywords", []), s.get("credit_line", ""))
+            rcover = m.get("cover") or (m["reel"][:-4] + " cover.jpg" if os.path.isfile(m["reel"][:-4] + " cover.jpg") else "")
             if it:
                 it["score"] = m.get("score", 0)
                 it["priority"] = int(it.get("priority") or round(float(m.get("score") or 5) * 10))
                 if not any(v.get("status") == "posted" for v in it["posted"].values()):
-                    it.update(file=m["reel"], hook=m["hook"], title=hook_line(s, m["hook"], m.get("emoji", "")), captions=caps)
+                    it.update(file=m["reel"], cover=rcover, hook=m["hook"], title=hook_line(s, m["hook"], m.get("emoji", "")), captions=caps)
                 it["approved"] = m["status"] == "approved"
             else:
                 q.append({"id": uuid.uuid4().hex[:10], "project": p["id"], "ref": m["id"], "kind": "reel",
                           "score": m.get("score", 0), "priority": int(round(float(m.get("score") or 5) * 10)),
                           "file": m["reel"], "hook": m["hook"], "title": hook_line(s, m["hook"], m.get("emoji", "")),
-                          "captions": caps, "cover": "", "approved": m["status"] == "approved",
+                          "captions": caps, "cover": rcover, "approved": m["status"] == "approved",
                           "created": time.time(), "posted": {}})
         for part in p.get("long_parts", []):
             ref = f"long{part['n']}"

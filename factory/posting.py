@@ -215,9 +215,13 @@ class Instagram:
                 return m["id"], m.get("permalink", "")
         return None
 
-    def _create_container(self, item, offset_ms, trial):
+    def _create_container(self, item, offset_ms, trial, cover_url=""):
         f = {"media_type": "REELS", "upload_type": "resumable", "caption": item["captions"]["instagram"],
-             "thumb_offset": str(offset_ms), "access_token": self.t}
+             "access_token": self.t}
+        if cover_url:
+            f["cover_url"] = cover_url
+        else:
+            f["thumb_offset"] = str(offset_ms)
         if trial:
             f["trial_params"] = json.dumps({"graduation_strategy": "SS_PERFORMANCE"})
         else:
@@ -228,25 +232,39 @@ class Instagram:
         s = core.load_settings()
         offset_ms = item.get("thumb_offset_ms") or (best_thumb_offset_ms(item["file"]) if s.get("auto_thumb_offset", True) else 1000)
         use_trial = bool(s.get("ig_trial_reels", True))
+        cover_url, staged_cov = "", ""
+        if item.get("cover") and os.path.isfile(item["cover"]) and core.which("cloudflared"):
+            try:
+                if not getattr(self, "link", None): self.link = VideoLink()
+                cover_url, staged_cov = self.link.stage_url(item["cover"])
+            except Exception:
+                cover_url, staged_cov = "", ""
         try:
-            c = self._create_container(item, offset_ms, trial=use_trial)
-        except RuntimeError as e:
-            if use_trial:
-                core.say(self.tag, "Trial Reels not active on this IG account yet — posting as standard Reel", "info")
-                c = self._create_container(item, offset_ms, trial=False)
+            try:
+                c = self._create_container(item, offset_ms, trial=use_trial, cover_url=cover_url)
+            except RuntimeError:
+                if use_trial:
+                    core.say(self.tag, "Trial Reels not active on this IG account yet — posting as standard Reel", "info")
+                    c = self._create_container(item, offset_ms, trial=False, cover_url=cover_url)
+                elif cover_url:
+                    c = self._create_container(item, offset_ms, trial=False, cover_url="")
+                else:
+                    raise
+            cid = c["id"]
+            core.say(self.tag, f"uploading {os.path.getsize(item['file'])/1e6:.1f} MB ({'custom 9:16 cover' if cover_url else f'cover @{offset_ms/1000:.1f}s'})")
+            push_file(c.get("uri") or f"https://rupload.facebook.com/ig-api-upload/{API}/{cid}", self.t, item["file"])
+            for _ in range(20):
+                time.sleep(30)
+                st = req("GET", f"{self.g}/{cid}", {"fields": "status_code,status", "access_token": self.t}, tag=self.tag)
+                if st.get("status_code") == "FINISHED": break
+                if st.get("status_code") in ("ERROR", "EXPIRED"):
+                    raise RuntimeError(f"processing failed: {st.get('status')}  (keep reels around 25-60s)")
             else:
-                raise
-        cid = c["id"]
-        core.say(self.tag, f"uploading {os.path.getsize(item['file'])/1e6:.1f} MB (cover @{offset_ms/1000:.1f}s)")
-        push_file(c.get("uri") or f"https://rupload.facebook.com/ig-api-upload/{API}/{cid}", self.t, item["file"])
-        for _ in range(20):
-            time.sleep(30)
-            st = req("GET", f"{self.g}/{cid}", {"fields": "status_code,status", "access_token": self.t}, tag=self.tag)
-            if st.get("status_code") == "FINISHED": break
-            if st.get("status_code") in ("ERROR", "EXPIRED"):
-                raise RuntimeError(f"processing failed: {st.get('status')}  (keep reels around 25-60s)")
-        else:
-            raise RuntimeError("still processing after 10 min")
+                raise RuntimeError("still processing after 10 min")
+        finally:
+            if staged_cov:
+                try: os.remove(staged_cov)
+                except OSError: pass
         try:
             mid = req("POST", f"{self.g}/{self.id}/media_publish", data=form({"creation_id": cid, "access_token": self.t}), tag=self.tag)["id"]
         except AuthError: raise
@@ -431,7 +449,8 @@ class VideoLink:
         if not self.healthy():
             core.say("TH", "Cloudflare video tunnel reconnecting…", "info")
             self._open()
-        tok = uuid.uuid4().hex + ".mp4"
+        ext = os.path.splitext(src_path)[1].lower() or ".mp4"
+        tok = uuid.uuid4().hex + ext
         dst = os.path.join(self.stage_dir, tok)
         core.fast_copy(src_path, dst)
         return self.base + "/" + tok, dst

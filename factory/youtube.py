@@ -54,8 +54,18 @@ def build_days(days=7, prefix="Day"):
                 title = fit_title(raw_t) if it["kind"] == "reel" else fit_title(raw_t, tail="")
                 fname = f"{order_i:02d} - {core.safe_name(title, 110)}"
                 core.fast_copy(it["file"], os.path.join(d, fname + ".mp4"))
-                if it["kind"] == "long" and it.get("cover") and os.path.isfile(it["cover"]):
-                    core.fast_copy(it["cover"], os.path.join(d, fname + " - thumbnail.jpg"))
+                cov = it.get("cover") or ""
+                if (not cov or not os.path.isfile(cov)) and it["kind"] == "reel":
+                    auto_cov = it["file"][:-4] + " cover.jpg"
+                    if not os.path.isfile(auto_cov):
+                        try:
+                            from . import covers
+                            covers.make_reel_cover(it["file"], it.get("hook") or it["title"], auto_cov, s)
+                        except Exception:
+                            auto_cov = ""
+                    cov = auto_cov
+                if cov and os.path.isfile(cov):
+                    core.fast_copy(cov, os.path.join(d, fname + " - thumbnail.jpg"))
                 desc = it["captions"].get("youtube") or it["captions"].get("facebook", "")
                 notes.append(f"[{order_i:02d}] {title}\n{desc}\n" + "-" * 48)
                 w.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), day_name, it["id"], it["kind"], title])
