@@ -46,11 +46,12 @@ DEFAULTS = {
     "caption_threads": "{hook}",
     "hashtags": "#gta6 #gtavi #gta6gameplay #grandtheftauto6 #vicecity #gta6clips",
     # posting
-    "post_every_min": {"instagram": 30, "facebook": 60, "threads": 45},
-    "platform_stagger_min": {"instagram": 0, "facebook": 20, "threads": 40},
-    "jitter_min": 6,                 # +- minutes of human timing jitter around post_every_min
+    "post_every_min": {"instagram": 60, "facebook": 60, "threads": 60},
+    "platform_stagger_min": {"instagram": 0, "facebook": 0, "threads": 0},
+    "jitter_min": 0,                 # +- minutes of human timing jitter around post_every_min
+    "sync_meta": True,               # post the exact same video across IG, FB & Threads in lockstep
     "post_hours": [0, 24],           # local hours when posting is allowed, [0, 24] = any time
-    "alternate_long": True,          # reel, long part, reel, long part... where a platform supports long video
+    "alternate_long": False,         # keep IG/FB/Threads on the same reel when sync_meta is True
     "ig_trial_reels": True,          # test IG reels on non-followers first (auto-falls back if account ineligible)
     "caption_rotation": True,        # rotate 5 native CTA styles per platform so captions don't look robotic
     "auto_thumb_offset": True,       # pass sharpest mid-action frame ms as reel cover

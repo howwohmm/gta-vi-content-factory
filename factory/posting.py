@@ -552,11 +552,33 @@ def _last_post_time(q, platform):
     times = [v.get("time", 0) for it in q for p, v in it["posted"].items() if p == platform and v.get("status") == "posted"]
     return max(times) if times else 0
 
-def _next_item(q, platform, kinds, alternate):
+def _catchup_item(q, platform, kinds, active_platforms):
+    """When sync_meta is True, if another active Meta platform already posted a video that `platform` hasn't posted yet, pick it immediately."""
+    partial = []
+    for it in q:
+        if not it.get("approved") or it["kind"] not in kinds or platform in it["posted"] or not os.path.isfile(it.get("file", "")):
+            continue
+        other_times = [
+            it["posted"][p].get("time", 0)
+            for p in active_platforms
+            if p != platform and it["posted"].get(p, {}).get("status") == "posted"
+        ]
+        if other_times:
+            partial.append((min(other_times), -item_priority(it), it))
+    if not partial:
+        return None
+    partial.sort(key=lambda x: (x[0], x[1]))
+    return partial[0][2]
+
+def _next_item(q, platform, kinds, alternate, sync_meta=False, active_platforms=()):
+    if sync_meta and active_platforms:
+        cu = _catchup_item(q, platform, kinds, active_platforms)
+        if cu:
+            return cu
     todo = [it for it in q if it["approved"] and it["kind"] in kinds and platform not in it["posted"] and os.path.isfile(it.get("file", ""))]
     if not todo: return None
     todo.sort(key=lambda it: (-item_priority(it), it.get("created", 0)))
-    if alternate and len(kinds) > 1:
+    if alternate and not sync_meta and len(kinds) > 1:
         done = sorted((v.get("time", 0), it["kind"]) for it in q for p, v in it["posted"].items() if p == platform and v.get("status") == "posted")
         last_kind = done[-1][1] if done else "long"
         want = "reel" if last_kind == "long" else "long"
@@ -648,18 +670,34 @@ def run_platform(platform):
         if not (a <= datetime.datetime.now().hour < b):
             _nap(tag, 600, "OUTSIDE POSTING HOURS"); continue
         q = pipeline.queue()
+        sync_meta = bool(s.get("sync_meta", True))
+        active_plats = [
+            p for p, k in (("instagram", "instagram_token"), ("facebook", "facebook_token"), ("threads", "threads_token"))
+            if s["platforms_on"].get(p, True) and core.get_key(k)
+        ]
+        catchup = _catchup_item(q, platform, client.kinds, active_plats) if sync_meta else None
         last_t = _last_post_time(q, platform)
-        if platform not in _next_jitter:
-            jm = max(0, int(s.get("jitter_min", 6)))
-            _next_jitter[platform] = random.randint(-jm * 60, jm * 60) if jm else 0
-        if last_t == 0 and boot_stagger > 0:
-            gap = (boot_at + boot_stagger) - time.time()
+        if catchup is not None:
+            gap = 0
+        elif sync_meta and active_plats:
+            # Lockstep clock: anchor all Meta platforms to the earliest platform's last batch start + 60m
+            iv = max(300, s["post_every_min"].get(platform, 60) * 60)
+            plat_lasts = [_last_post_time(q, p) for p in active_plats if _last_post_time(q, p) > 0]
+            anchor = min(plat_lasts) if (plat_lasts and last_t > 0) else last_t
+            gap = (anchor + iv) - time.time() if anchor else 0
         else:
-            base_iv = max(300, s["post_every_min"].get(platform, 60) * 60 + _next_jitter[platform])
-            gap = (last_t + base_iv) - time.time() if last_t else 0
+            if platform not in _next_jitter:
+                jm = max(0, int(s.get("jitter_min", 0)))
+                _next_jitter[platform] = random.randint(-jm * 60, jm * 60) if jm else 0
+            if last_t == 0 and boot_stagger > 0:
+                gap = (boot_at + boot_stagger) - time.time()
+            else:
+                base_iv = max(300, s["post_every_min"].get(platform, 60) * 60 + _next_jitter[platform])
+                gap = (last_t + base_iv) - time.time() if last_t else 0
         if gap > 0:
-            _nap(tag, min(gap, 60), "NEXT POST"); STATUS[tag]["until"] = time.time() + max(0, gap - 60); continue
-        item = _next_item(q, platform, client.kinds, s.get("alternate_long", True))
+            _nap(tag, min(gap, 15), "NEXT POST"); STATUS[tag]["until"] = time.time() + max(0, gap - min(gap, 15)); continue
+        item = catchup or _next_item(q, platform, client.kinds, s.get("alternate_long", False),
+                                     sync_meta=sync_meta, active_platforms=active_plats)
         if not item:
             _nap(tag, 120, "WAITING FOR APPROVED VIDEOS"); continue
         try:

@@ -59,6 +59,9 @@ def _call(path, body=None):
 def cli(args):
     cmd = args[0]
     try:
+        if cmd == "monitor":
+            from . import tui
+            return tui.run(URL, remote=True)
         if cmd == "status":
             s = _call("/api/state")
             on = any(s["posting"]["running"].values())
@@ -86,6 +89,11 @@ def main():
         PORT = _pick_port(for_cli=True)
         URL = f"http://localhost:{PORT}"
         return cli(args)
+    if "--terminal" in args:
+        existing_p = _pick_port(for_cli=True)
+        if _is_gvcf(existing_p):
+            from . import tui
+            return tui.run(f"http://localhost:{existing_p}", remote=True)
     PORT = _pick_port(for_cli=False)
     URL = f"http://localhost:{PORT}"
     from . import server, core

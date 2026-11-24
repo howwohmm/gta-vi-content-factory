@@ -67,7 +67,7 @@ def studio_status():
     os.makedirs(root, exist_ok=True)
     days = sorted(
         [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)) and not d.startswith(".")],
-        reverse=True,
+        key=lambda d: (0 if d.startswith("S-Tier") else 1, d),
     )
     led = core.read_json(SCHED_LEDGER, {})
     info = {
@@ -216,13 +216,26 @@ def _pick_schedule_datetime(page, target_dt: datetime.datetime):
             page.keyboard.press("Enter")
         time.sleep(0.5)
 
+def _close_manual_cdp_chrome():
+    if _cdp_up():
+        subprocess.run(["pkill", "-f", f"user-data-dir={PROFILE_DIR}"], capture_output=True)
+        for _ in range(15):
+            if not _cdp_up():
+                break
+            time.sleep(0.4)
+    for lock_name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        lp = os.path.join(PROFILE_DIR, lock_name)
+        if os.path.lexists(lp):
+            try: os.unlink(lp)
+            except OSError: pass
+
 def autopost_day_job(job, day_name="S-Tier Day 01", spacing_min=45, max_videos=15):
     """Background job: uploads & schedules every unscheduled video in `day_name` on YouTube Studio."""
     day_dir = os.path.join(core.DIRS["youtube"], day_name)
     if not os.path.isdir(day_dir):
         raise RuntimeError(f"Day folder not found: {day_dir}. Build a Day pack first.")
 
-    launch_studio_browser()
+    os.makedirs(PROFILE_DIR, exist_ok=True)
     items = parse_day_folder(day_dir)
     if not items:
         raise RuntimeError(f"No .mp4 files in {day_name}.")
@@ -242,21 +255,28 @@ def autopost_day_job(job, day_name="S-Tier Day 01", spacing_min=45, max_videos=1
         core.say("YT", f"All videos in '{day_name}' are already scheduled on YouTube!", "good")
         return {"scheduled": 0, "skipped": len(items)}
 
+    # Close any standalone sign-in Chrome holding PROFILE_DIR so Playwright persistent_context can open it cleanly
+    _close_manual_cdp_chrome()
+
     slots = _next_schedule_slots(len(todo), spacing_min=spacing_min)
     from playwright.sync_api import sync_playwright
 
     scheduled_n = 0
     with sync_playwright() as pw:
-        browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}")
-        ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-        page = next((p for p in ctx.pages if "studio.youtube.com" in (p.url or "")), None)
-        if page is None:
-            page = ctx.new_page()
-            page.goto("https://studio.youtube.com", wait_until="domcontentloaded", timeout=45000)
-        time.sleep(3.0)
+        ctx = pw.chromium.launch_persistent_context(
+            PROFILE_DIR,
+            channel="chrome",
+            headless=False,
+            ignore_default_args=["--enable-automation"],
+            args=["--disable-blink-features=AutomationControlled", "--no-first-run", "--no-default-browser-check"],
+        )
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.goto("https://studio.youtube.com", wait_until="domcontentloaded", timeout=45000)
+        time.sleep(3.5)
 
         if "accounts.google.com" in (page.url or "") or "studio.youtube.com/channel/" not in (page.url or ""):
-            page.bring_to_front()
+            ctx.close()
+            launch_studio_browser()
             raise RuntimeError(
                 "Sign into your YouTube Studio account in the Google Chrome window that just opened, "
                 "then click 'Start Auto-Schedule' again!"
