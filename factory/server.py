@@ -2,7 +2,7 @@
 import os, sys, time, shutil, threading, platform
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
-from . import core, jobs, ingest, pipeline, posting, youtube, covers, render, ai
+from . import core, jobs, ingest, pipeline, posting, youtube, youtube_bot, covers, render, ai
 
 app = FastAPI(title="GTA VI Content Factory", docs_url=None, redoc_url=None)
 WEB = os.path.join(core.HERE, "web")
@@ -83,6 +83,17 @@ def recent(q, n=8):
                              "url": v.get("url", ""), "metrics": v.get("metrics") or {}})
     return sorted(done, key=lambda d: d["at"] or 0, reverse=True)[:n]
 
+_yt_status_cache = (0.0, None)
+
+def _yt_status():
+    global _yt_status_cache
+    now = time.monotonic()
+    if _yt_status_cache[1] is not None and now - _yt_status_cache[0] < 3.0:
+        return _yt_status_cache[1]
+    res = youtube_bot.studio_status()
+    _yt_status_cache = (now, res)
+    return res
+
 @app.get("/api/state")
 def state():
     s = core.load_settings()
@@ -95,11 +106,16 @@ def state():
             if st == "posted": c["posted"] += 1
             elif st == "error": c["error"] += 1
             elif it["approved"] and (it["kind"] == "reel" or p == "facebook"): c["waiting"] += 1
+    accts = {p: bool(core.get_key(k)) for p, k in CONNECT_KEYS.items()} | {"meta_app": bool(core.get_key("meta_app_secret"))}
+    for p, tag in (("instagram", "IG"), ("facebook", "FB"), ("threads", "TH")):
+        if accts[p] and posting.STATUS.get(tag, {}).get("state") == "NOT CONNECTED":
+            posting.STATUS.pop(tag, None)
     return {
         "settings": s, "home": core.HOME_DIR, "dirs": core.DIRS, "tools": tools(),
         "ai": {"provider": ai.pick_provider(s), "claude": bool(core.get_key("claude_api_key")),
                "openai": bool(core.get_key("openai_api_key"))},
-        "accounts": {p: bool(core.get_key(k)) for p, k in CONNECT_KEYS.items()} | {"meta_app": bool(core.get_key("meta_app_secret"))},
+        "accounts": accts,
+        "youtube_bot": _yt_status(),
         "posting": {"status": posting.STATUS, "running": posting.running()},
         "counts": counts, "queue_size": len(q), "up_next": up_next(q), "recent": recent(q),
         "projects": [{"id": p["id"], "title": p["title"], "status": p["status"], "duration": p["duration"],
@@ -286,6 +302,22 @@ async def yt_build(req: Request):
     days = int(b.get("days", 7))
     prefix = b.get("prefix", "Day")
     return ok(made=youtube.build_days(days, prefix=prefix), folder=core.DIRS["youtube"])
+
+@app.post("/api/youtube/login")
+def yt_login():
+    global _yt_status_cache
+    _yt_status_cache = (0.0, None)
+    return youtube_bot.launch_studio_browser()
+
+@app.post("/api/youtube/autopost")
+async def yt_autopost(req: Request):
+    b = await req.json()
+    day = (b.get("day") or "S-Tier Day 01").strip()
+    spacing = int(b.get("spacing_min") or 45)
+    max_v = int(b.get("max_videos") or 15)
+    j = jobs.start("youtube", f"YouTube Auto-Schedule: {day}", youtube_bot.autopost_day_job,
+                   day_name=day, spacing_min=spacing, max_videos=max_v, parallel=True)
+    return ok(job=j.id, day=day)
 
 @app.post("/api/open")
 async def open_folder(req: Request):

@@ -419,14 +419,40 @@ async function previewCover() { toast("Rendering…"); const r = await api("/api
 
 // ------------------------------------------------------------ youtube
 function youtube() {
-  const content = `<p class="sub">Google keeps script uploads private until an app passes its audit, so you drag and the factory does everything else.</p>
-  <div class="list intg"><div class="item"><div class="li"><div class="logo-tile">${ic("star")}</div><div class="meta"><b>1 · Make S-Tier Day packs</b><span>Builds <code>S-Tier Day 01..03</code> from your #01–#30 Global S-Tier bangers + up to 2 long parts/day, numbered in exact posting order.</span></div><button class="btn primary sm" onclick="ytBuild('S-Tier Day', 3)">Build S-Tier packs</button><button class="btn sm" onclick="ytBuild('Day', 7)">Build more Days</button></div></div>
-    <div class="item"><div class="li"><div class="logo-tile">${ic("upload")}</div><div class="meta"><b>2 · Drag into YouTube Studio</b><span>Create → Upload videos, drop a Day folder's files in. They land as drafts.</span></div><a class="btn sm" href="https://studio.youtube.com" target="_blank">Open Studio ${ic("arrow")}</a></div></div>
-    <div class="item"><div class="li"><div class="logo-tile">${ic("spark")}</div><div class="meta"><b>3 · Let Claude schedule them</b><span>With the <code>youtube-studio-scheduler</code> skill: “schedule my drafts every 30 minutes, 2 long videos a day”.</span></div>${aiBtn("yt", "Copy prompt")}</div></div></div>
-  <div class="card" style="margin-top:16px"><b>Lift the upload limit</b><p class="muted small" style="margin:4px 0 0">Verify your channel (Studio → Settings → Channel → Feature eligibility → Advanced features) to go past ~15 uploads a day.</p></div>`;
-  return shell("YouTube", `<button class="btn ghost sm" onclick="openFolder('youtube')">${ic("folder")} Uploads folder</button>`, content);
+  const yb = S.youtube_bot || { day_folders: [] };
+  const days = yb.day_folders?.length ? yb.day_folders : ["S-Tier Day 01"];
+  const statusPill = yb.signed_in
+    ? `<span class="pill ok">Signed into YouTube Studio</span>`
+    : yb.browser_open
+      ? `<span class="pill busy">Chrome open — finish sign-in</span>`
+      : `<span class="pill">Sign in once</span>`;
+  const content = `<p class="sub">100% hands-free local Chrome + Playwright scheduler — bypasses Google's 6/day unaudited API Private lock.</p>
+  <div class="list intg">
+    <div class="item"><div class="li"><div class="logo-tile">${ic("yt")}</div>
+      <div class="meta"><b>1 · Connect YouTube Studio (One-Time Sign-In)</b><span>Opens a dedicated Google Chrome window saved on this Mac. Sign into your <b>@${esc(S.settings.handle || "yourchannel")}</b> YouTube channel once — stays logged in forever.</span></div>
+      ${statusPill}<button class="btn ${yb.signed_in ? "sm" : "primary sm"}" onclick="ytLogin()">${yb.signed_in ? "Open Chrome" : "Sign in on Chrome"}</button></div></div>
+    <div class="item"><div class="li" style="flex-wrap:wrap;gap:10px"><div class="logo-tile">${ic("play")}</div>
+      <div class="meta"><b>2 · Auto-Upload & Schedule Day Pack</b><span>Uploads every <code>.mp4</code>, attaches <code>- thumbnail.jpg</code>, fills title & description, marks Not Made For Kids, and schedules Public posts (${yb.scheduled_count || 0} scheduled so far).</span></div>
+      <select id="yt_day" style="width:auto;min-width:165px">${days.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("")}</select>
+      <input type="number" id="yt_gap" value="45" min="15" step="15" style="width:82px" title="Minutes between scheduled posts">
+      <span class="small muted">min apart</span>
+      <button class="btn hot sm" onclick="ytAutoPost()">${ic("upload")} Start Auto-Schedule</button></div></div>
+    <div class="item"><div class="li"><div class="logo-tile">${ic("star")}</div>
+      <div class="meta"><b>3 · Build more Day packs</b><span>Packs your priority queue into numbered Day folders with <code>9:16</code> + <code>16:9</code> thumbnails & descriptions.</span></div>
+      <button class="btn sm" onclick="ytBuild('S-Tier Day', 3)">Build S-Tier packs</button>
+      <button class="btn ghost sm" onclick="ytBuild('Day', 7)">Build more Days</button></div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><b>Tip: Unlock 15+ daily uploads & custom thumbnails</b><p class="muted small" style="margin:4px 0 0">Inside YouTube Studio → <b>Settings → Channel → Feature eligibility → Intermediate & Advanced features</b>: verify your phone number once so YouTube lets the bot attach custom thumbnails and upload 15+ Shorts/day.</p></div>`;
+  return shell("YouTube Auto-Poster", `<button class="btn ghost sm" onclick="openFolder('youtube')">${ic("folder")} Uploads folder</button>`, content);
 }
-async function ytBuild(prefix = "Day", days = 7) { const r = await api("/api/youtube/build", { days, prefix }); toast(r.made.length ? "Made " + r.made.join(", ") : "Nothing new: approve or sync more videos first"); }
+async function ytBuild(prefix = "Day", days = 7) { const r = await api("/api/youtube/build", { days, prefix }); await refresh(); render(); toast(r.made.length ? "Made " + r.made.join(", ") : "Nothing new: approve or sync more videos first"); }
+async function ytLogin() { await api("/api/youtube/login", {}); toast("Opened YouTube Studio Chrome window — sign into your YouTube channel once!", 6000); setTimeout(() => refresh().then(render), 2500); }
+async function ytAutoPost() {
+  const day = $("#yt_day")?.value || "S-Tier Day 01", spacing_min = Number($("#yt_gap")?.value || 45);
+  await api("/api/youtube/autopost", { day, spacing_min, max_videos: 15 });
+  toast(`Started YouTube Auto-Scheduler for ${day}! Follow progress on Dashboard.`, 5000);
+  await refresh(); go("home");
+}
 
 // ------------------------------------------------------------ settings
 function settings() {
@@ -487,9 +513,9 @@ async function tick() {
     const playing = [...document.querySelectorAll("video")].some((v) => !v.paused);
     const sig = JSON.stringify([S.counts, S.up_next.map((i) => i.id + i.todo), S.jobs.map((j) => j.status + Math.round(j.progress * 100) + j.step),
       S.posting.running, Object.values(S.posting.status).map((x) => x.state + x.kind),
-      S.projects.map((p) => p.id + p.status + p.reels + p.approved + p.longs), S.recent.length, S.accounts]);
+      S.projects.map((p) => p.id + p.status + p.reels + p.approved + p.longs), S.recent.length, S.accounts, S.youtube_bot?.signed_in, S.youtube_bot?.browser_open]);
     const changed = sig !== tick.sig; tick.sig = sig;
-    if (S.settings.setup_done && ["home", "videos", "review"].includes(view) && changed && !typing && !playing) render();
+    if (S.settings.setup_done && ["home", "videos", "review", "youtube"].includes(view) && changed && !typing && !playing) render();
     else if ($("#feed")) { const f = $("#feed"), atEnd = f.scrollTop + f.clientHeight >= f.scrollHeight - 30; f.innerHTML = feedHTML(); if (atEnd) f.scrollTop = f.scrollHeight; }
   } catch (e) { toast("Lost connection to the factory. Is it still running?"); }
 }
