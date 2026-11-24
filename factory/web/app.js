@@ -434,7 +434,7 @@ function youtube() {
     <div class="item"><div class="li" style="flex-wrap:wrap;gap:10px"><div class="logo-tile">${ic("play")}</div>
       <div class="meta"><b>2 · Auto-Upload & Schedule Day Pack</b><span>Uploads every <code>.mp4</code>, attaches <code>- thumbnail.jpg</code>, fills title & description, marks Not Made For Kids, and schedules Public posts (${yb.scheduled_count || 0} scheduled so far).</span></div>
       <select id="yt_day" style="width:auto;min-width:165px">${days.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("")}</select>
-      <input type="number" id="yt_gap" value="45" min="15" step="15" style="width:82px" title="Minutes between scheduled posts">
+      <input type="number" id="yt_gap" value="30" min="15" step="15" style="width:82px" title="Minutes between scheduled posts">
       <span class="small muted">min apart</span>
       <button class="btn hot sm" onclick="ytAutoPost()">${ic("upload")} Start Auto-Schedule</button></div></div>
     <div class="item"><div class="li"><div class="logo-tile">${ic("star")}</div>

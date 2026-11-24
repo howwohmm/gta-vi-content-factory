@@ -51,8 +51,8 @@ def form(d): return urllib.parse.urlencode(d).encode()
 def _state(tag, text, secs=None, kind="wait", **extra):
     STATUS.setdefault(tag, {}).update(state=text, until=(time.time() + secs) if secs else None, kind=kind, **extra)
 
-def _nap(tag, secs, text):
-    _state(tag, text, secs)
+def _nap(tag, secs, text, total_until=None):
+    _state(tag, text, total_until if total_until is not None else secs)
     _stop.wait(secs)
 
 def push_file(url, token, path):
@@ -679,12 +679,20 @@ def run_platform(platform):
         last_t = _last_post_time(q, platform)
         if catchup is not None:
             gap = 0
+            item = catchup
         elif sync_meta and active_plats:
-            # Lockstep clock: anchor all Meta platforms to the earliest platform's last batch start + 60m
-            iv = max(300, s["post_every_min"].get(platform, 60) * 60)
-            plat_lasts = [_last_post_time(q, p) for p in active_plats if _last_post_time(q, p) > 0]
-            anchor = min(plat_lasts) if (plat_lasts and last_t > 0) else last_t
-            gap = (anchor + iv) - time.time() if anchor else 0
+            leader = active_plats[0]
+            iv = max(300, s["post_every_min"].get(leader, 30) * 60)
+            plat_lasts = [_last_post_time(q, p) for p in active_plats]
+            batch_last = max(plat_lasts) if any(plat_lasts) else 0
+            any_pending_catchup = any(_catchup_item(q, p, CLIENTS[p].kinds, active_plats) is not None for p in active_plats)
+            if platform != leader or any_pending_catchup:
+                wait_for = max(10, (batch_last + iv) - time.time()) if batch_last else 10
+                _nap(tag, min(wait_for, 10), "NEXT POST", total_until=wait_for); continue
+            gap = (batch_last + iv) - time.time() if batch_last else 0
+            if gap > 0:
+                _nap(tag, min(gap, 15), "NEXT POST", total_until=gap); continue
+            item = _next_item(q, platform, client.kinds, False, sync_meta=True, active_platforms=active_plats)
         else:
             if platform not in _next_jitter:
                 jm = max(0, int(s.get("jitter_min", 0)))
@@ -694,10 +702,9 @@ def run_platform(platform):
             else:
                 base_iv = max(300, s["post_every_min"].get(platform, 60) * 60 + _next_jitter[platform])
                 gap = (last_t + base_iv) - time.time() if last_t else 0
-        if gap > 0:
-            _nap(tag, min(gap, 15), "NEXT POST"); STATUS[tag]["until"] = time.time() + max(0, gap - min(gap, 15)); continue
-        item = catchup or _next_item(q, platform, client.kinds, s.get("alternate_long", False),
-                                     sync_meta=sync_meta, active_platforms=active_plats)
+            if gap > 0:
+                _nap(tag, min(gap, 15), "NEXT POST", total_until=gap); continue
+            item = _next_item(q, platform, client.kinds, s.get("alternate_long", False))
         if not item:
             _nap(tag, 120, "WAITING FOR APPROVED VIDEOS"); continue
         try:
